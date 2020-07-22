@@ -1,7 +1,7 @@
-# Haskell Servant and Elm Example
+# Haskell Servant, Elm, Persistent Example
 
 This example project illustrates how to set up a project that:
-
+- Uses [`haskell-servant/example-servant-elm`](https://github.com/haskell-servant/example-servant-elm)
 - Uses haskell and `servant` as a backend exposing a JSON api
   (and serving some files).
 - Uses elm to write the frontend.
