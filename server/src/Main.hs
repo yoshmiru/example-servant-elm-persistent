@@ -10,4 +10,5 @@ main = do
       settings = setPort port $ setBeforeMainLoop
         (hPutStrLn stderr ("listening on port " ++ show port ++ "..."))
         defaultSettings
-  runSettings settings =<< app
+  --runSettings settings =<< app "host=localhost dbname=mydb"
+  runSettings settings =<< app "mydb.sqlite3"

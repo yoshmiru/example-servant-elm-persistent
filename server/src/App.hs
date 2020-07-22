@@ -4,12 +4,20 @@ module App where
 
 import           Control.Concurrent
 import           Control.Monad.IO.Class
-import           Data.Map
+import           Control.Monad.Logger   (runStderrLoggingT)
+import           Database.Persist
+import           Database.Persist.Sqlite
+    ( ConnectionPool, createSqlitePool, runSqlPool
+    , runSqlPersistMPool, runMigration, selectList
+    , delete, insert , entityVal, fromSqlKey, toSqlKey
+    , (==.))
+import           Data.String.Conversions (cs)
 import           Network.Wai
 import           Network.Wai.MakeAssets
 import           Servant
 
 import           Api
+import           Models
 
 type WithAssets = Api :<|> Raw
 
@@ -19,52 +27,47 @@ withAssets = Proxy
 options :: Options
 options = Options "client"
 
-app :: IO Application
-app = serve withAssets <$> server
+app :: String -> IO Application
+app connStr = serve withAssets <$> server connStr
 
-server :: IO (Server WithAssets)
-server = do
+server :: String -> IO (Server WithAssets)
+server connStr = do
   assets <- serveAssets options
-  db     <- mkDB
-  return (apiServer db :<|> Tagged assets)
+  pool <- runStderrLoggingT $ do
+    createSqlitePool (cs connStr) 5
+  -- run migration
+  runSqlPool (runMigration migrateAll) pool
+  return (apiServer pool :<|> Tagged assets)
 
-apiServer :: DB -> Server Api
-apiServer db = listItems db :<|> getItem db :<|> postItem db :<|> deleteItem db
+apiServer :: ConnectionPool -> Server Api
+apiServer pool = listItems pool :<|> getItem pool :<|> postItem pool :<|> deleteItem pool
 
-listItems :: DB -> Handler [ItemId]
+listItems :: ConnectionPool -> Handler [Int]
 listItems db = liftIO $ allItemIds db
 
-getItem :: DB -> ItemId -> Handler Item
+getItem :: ConnectionPool -> Int -> Handler Item
 getItem db n = maybe (throwError err404) return =<< liftIO (lookupItem db n)
 
-postItem :: DB -> String -> Handler ItemId
-postItem db new = liftIO $ insertItem db new
+postItem :: ConnectionPool -> Item -> Handler Int
+postItem pool new = liftIO $ insertItem pool new
 
--- fake DB
 
-newtype DB = DB (MVar (Map ItemId String))
+insertItem :: ConnectionPool -> Item -> IO Int
+insertItem pool new = liftIO $ flip runSqlPersistMPool pool $ do
+  newKey <- insert new
+  return $ fromIntegral $ fromSqlKey newKey
 
-debug :: DB -> IO ()
-debug (DB mvar) = readMVar mvar >>= print
+lookupItem :: ConnectionPool -> Int -> IO (Maybe Item)
+lookupItem pool id = liftIO $ flip runSqlPersistMPool pool $ do
+  items <- selectList [ItemId ==. (toSqlKey $ fromIntegral id)] []
+  return $ case head items of
+    Entity _ item -> Just item
+    _         -> Nothing
 
-mkDB :: IO DB
-mkDB = DB <$> newMVar empty
+allItemIds :: ConnectionPool -> IO [Int]
+allItemIds pool = liftIO $ flip runSqlPersistMPool pool $ do
+  items <- selectList [] []
+  return $ map (\(Entity id (_)) -> fromIntegral $ fromSqlKey (id::ItemId)) items
 
-insertItem :: DB -> String -> IO ItemId
-insertItem (DB mvar) new = modifyMVar mvar $ \m -> do
-  let newKey = case keys m of
-        [] -> ItemId 0
-        ks -> succ (maximum ks)
-  return (insert newKey new m, newKey)
-
-lookupItem :: DB -> ItemId -> IO (Maybe Item)
-lookupItem (DB mvar) i = fmap (Item i) . Data.Map.lookup i <$> readMVar mvar
-
-allItemIds :: DB -> IO [ItemId]
-allItemIds (DB mvar) = keys <$> readMVar mvar
-
-deleteItem :: MonadIO m => DB -> ItemId -> m ()
-deleteItem (DB mvar) i = liftIO $ do
-  modifyMVar_ mvar $ \m -> return (delete i m)
-  return ()
-
+deleteItem :: ConnectionPool -> Int -> Handler ()
+deleteItem pool itemId =  liftIO $ flip runSqlPersistMPool pool $ delete (toSqlKey $ fromIntegral itemId :: (Key Item))

@@ -48,15 +48,15 @@ type Msg
 
 
 type FromServer
-    = Initial (List ItemId)
-    | NewItem Item
-    | Delete ItemId
+    = Initial (List Int)
+    | NewItem Int Item
+    | Delete Int
 
 
 type FromUi
     = AddItemInputChange String
     | AddItemButton
-    | Done ItemId
+    | Done Int
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -67,12 +67,12 @@ update msg model =
                 Initial itemIds ->
                     ( model
                     , itemIds
-                        |> List.map (\id -> getApiItemByItemId id (fromServer NewItem))
+                        |> List.map (\id -> getApiItemByItemId id (fromServer (NewItem id)))
                         |> Cmd.batch
                     )
 
-                NewItem item ->
-                    ( { model | items = Dict.insert item.id item model.items }
+                NewItem id item ->
+                    ( { model | items = Dict.insert id item model.items }
                     , Cmd.none
                     )
 
@@ -85,15 +85,15 @@ update msg model =
             case fromUi of
                 AddItemButton ->
                     let
-                        itemName =
-                            model.addItemInput
+                        itemName = model.addItemInput
+                        item = Item itemName
                     in
                     if itemName == "" then
                         update (Error "empty field") model
 
                     else
                         ( { model | addItemInput = "" }
-                        , postApiItem itemName (fromServer (\id -> NewItem (Item id itemName)))
+                        , postApiItem item (fromServer (\id -> NewItem id item))
                         )
 
                 AddItemInputChange t ->
@@ -147,7 +147,7 @@ view : Model -> Html Msg
 view model =
     let
         items =
-            List.map (viewItem << Tuple.second) (Dict.toList model.items)
+            List.map viewItem (Dict.toList model.items)
 
         error =
             model.error
@@ -162,12 +162,12 @@ view model =
         ]
 
 
-viewItem : Item -> Html Msg
-viewItem item =
+viewItem : (Int, Item) -> Html Msg
+viewItem (itemId, item) =
     li []
-        [ text item.text
+        [ text item.itemText
         , text " - "
-        , button [ onClick (FromUi <| Done item.id) ] [ text "done" ]
+        , button [ onClick (FromUi <| Done itemId) ] [ text "done" ]
         ]
 
 

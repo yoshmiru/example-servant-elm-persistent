@@ -3,34 +3,37 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeOperators #-}
+--{-# LANGUAGE FlexibleInstances #-}
+--{-# LANGUAGE TypeSynonymInstances #-}
 
 module Api where
 
 import           Data.Proxy
 import           Servant.API
 import qualified Elm.Derive
+import           Models
 
 type Api =
   "api" :>
-    ("item" :> Get '[JSON] [ItemId] :<|>
-     "item" :> Capture "itemId" ItemId :> Get '[JSON] Item :<|>
-     "item" :> ReqBody '[JSON] String :> Post '[JSON] ItemId :<|>
-     "item" :> Capture "itemId" ItemId :> Delete '[JSON] ())
+    ("item" :> Get '[JSON] [Int] :<|>
+     "item" :> Capture "itemId" Int :> Get '[JSON] Item :<|>
+     "item" :> ReqBody '[JSON] Item :> Post '[JSON] Int :<|>
+     "item" :> Capture "itemId" Int :> Delete '[JSON] ())
 
 api :: Proxy Api
 api = Proxy
 
 -- types
 
-newtype ItemId = ItemId Int
-  deriving (Show, Eq, Ord, Enum, FromHttpApiData, ToHttpApiData)
+--newtype ItemId = ItemId Int
+--  deriving (Show, Eq, Ord, Enum, FromHttpApiData, ToHttpApiData)
 
-data Item
-  = Item {
-    id :: ItemId,
-    text :: String
-  }
-  deriving (Show, Eq)
+--data Item
+--  = Item {
+--    id :: ItemId,
+--    text :: String
+--  }
+--  deriving (Show, Eq)
 
 Elm.Derive.deriveBoth Elm.Derive.defaultOptions ''Item
-Elm.Derive.deriveBoth Elm.Derive.defaultOptions ''ItemId
+--Elm.Derive.deriveElmDef Elm.Derive.defaultOptions ''ItemId

@@ -15,6 +15,7 @@ import           Servant.Elm                    ( DefineElm(DefineElm)
                                                 , generateElmModuleWith
                                                 )
 import           Api
+import           Models
 
 main :: IO ()
 main = generateElmModuleWith
@@ -22,5 +23,5 @@ main = generateElmModuleWith
   ["Api"]
   defElmImports
   "client/src"
-  [DefineElm (Proxy :: Proxy Item), DefineElm (Proxy :: Proxy ItemId)]
+  [DefineElm (Proxy :: Proxy Item)]--, DefineElm (Proxy :: Proxy ItemId)]
   (Proxy :: Proxy Api)

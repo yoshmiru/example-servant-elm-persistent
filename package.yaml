@@ -1,4 +1,4 @@
-name: example-servant-elm
+name: example-servant-elm-persistent
 
 dependencies:
   - base
@@ -13,6 +13,11 @@ dependencies:
   - text
   - transformers
   - containers
+  - persistent
+  - persistent-template
+  - persistent-sqlite
+  - string-conversions
+  - monad-logger
 
 executables:
   server:
