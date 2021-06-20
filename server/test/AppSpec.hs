@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings          #-}
 module AppSpec where
 
 import           Control.Exception              ( throwIO
@@ -16,11 +17,12 @@ import           Test.Hspec
 
 import           Api
 import           App                            ( app )
+import           Models
 
-getItemIds :: ClientM [ItemId]
-getItem :: ItemId -> ClientM Item
-postItem :: String -> ClientM ItemId
-deleteItem :: ItemId -> ClientM ()
+getItemIds :: ClientM [Int]
+getItem :: Int -> ClientM Item
+postItem :: Item -> ClientM Int
+deleteItem :: Int -> ClientM ()
 getItemIds :<|> getItem :<|> postItem :<|> deleteItem = client api
 
 spec :: Spec
@@ -32,27 +34,31 @@ spec = do
 
       context "/api/item/:id" $ do
         it "returns a 404 for missing items" $ \(manager, baseUrl) -> do
-          Left err <- runClientM (getItem $ ItemId 23)
+          Left err <- runClientM (getItem 23)
                                  (ClientEnv manager baseUrl Nothing)
           errorStatus err `shouldBe` (Just notFound404)
 
       context "POST" $ do
         it "allows to create an item" $ \host -> do
-          i <- try host $ postItem "foo"
-          try host (getItem i) `shouldReturn` Item i "foo"
+          i <- try host $ postItem $ Item "foo"
+          try host (getItem i) `shouldReturn` Item "foo"
+          try host $ deleteItem i
 
         it "lists created items" $ \host -> do
-          i <- try host $ postItem "foo"
+          i <- try host $ postItem $ Item "foo"
           try host getItemIds `shouldReturn` [i]
+          try host $ deleteItem i
 
         it "lists 2 created items" $ \host -> do
-          a <- try host $ postItem "foo"
-          b <- try host $ postItem "bar"
+          a <- try host $ postItem $ Item "foo"
+          b <- try host $ postItem $ Item "bar"
           try host getItemIds `shouldReturn` [a, b]
+          try host $ deleteItem a
+          try host $ deleteItem b
 
       context "DELETE" $ do
         it "allows to delete items" $ \host -> do
-          i <- try host $ postItem "foo"
+          i <- try host $ postItem $ Item "foo"
           _ <- try host $ deleteItem i
           try host getItemIds `shouldReturn` []
 
@@ -66,7 +72,7 @@ try (manager, baseUrl) action = do
     Left  err -> throwIO $ ErrorCall $ show err
 
 withApp :: (Host -> IO a) -> IO a
-withApp action = testWithApplication app $ \port -> do
+withApp action = testWithApplication (app "testdb.sqlite3") $ \port -> do
   manager <- newManager defaultManagerSettings
   let url = BaseUrl Http "localhost" port ""
   action (manager, url)
