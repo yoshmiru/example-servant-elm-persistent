@@ -35,7 +35,7 @@ spec = do
       context "/api/item/:id" $ do
         it "returns a 404 for missing items" $ \(manager, baseUrl) -> do
           Left err <- runClientM (getItem 23)
-                                 (ClientEnv manager baseUrl Nothing)
+                                 (ClientEnv manager baseUrl Nothing defaultMakeClientRequest)
           errorStatus err `shouldBe` (Just notFound404)
 
       context "POST" $ do
@@ -66,7 +66,7 @@ type Host = (Manager, BaseUrl)
 
 try :: Host -> ClientM a -> IO a
 try (manager, baseUrl) action = do
-  result <- runClientM action (ClientEnv manager baseUrl Nothing)
+  result <- runClientM action (ClientEnv manager baseUrl Nothing defaultMakeClientRequest)
   case result of
     Right x   -> return x
     Left  err -> throwIO $ ErrorCall $ show err
